@@ -8,7 +8,7 @@ class Semantic:
 		# Tabela de símbolos implementada como
 		# uma pilha (lista) de tabelas (dicionários)
 		# {'lexema': (valor, tipo)}
-		self.__stack: List[Dict[str,Tuple[Union[str,int,None],str]]] = []
+		self.__stack: List[Dict[str,Tuple[Union[str,float,None],str]]] = []
 		self.__n: int = 0
 
 	# Trata sobre as declarações das variáveis.
@@ -49,11 +49,12 @@ class Semantic:
 			idx_val = self.__find_id(val)
 			if idx_val == None:
 				return '({}) não encontrado'.format(val)
+			id_val = val
 			val = self.__stack[idx_val][val]
 			if symbol[1] == val[1]:
 				self.__stack[idx_id][id] = val
 			else:
-				return '({}) e ({}) são de tipos incompatíveis'.format(id, val)
+				return '({}) e ({}) são de tipos incompatíveis'.format(id, id_val)
 		elif symbol[1] == 'cadeia' and val[0] not in QUOTATIONS:
 			return 'tipo incompatível: valor deve ser do tipo cadeia'
 		elif symbol[1] == 'numero' and val[0] in QUOTATIONS:
