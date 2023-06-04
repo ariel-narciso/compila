@@ -1,6 +1,8 @@
 
 from typing import List, Dict, Tuple, Union
 
+QUOTATIONS = ('"', '“', '”')
+
 class Semantic:
 	def __init__(self) -> None:
 		# Tabela de símbolos implementada como
@@ -9,47 +11,65 @@ class Semantic:
 		self.__stack: List[Dict[str,Tuple[Union[str,int,None],str]]] = []
 		self.__n: int = 0
 
+	# Trata sobre as declarações das variáveis.
+	# Se tudo ocorrer bem retorna None, caso
+	# contrário, retorna uma lista de str descrevendo o(s) erro(s).
 	def __declare_id(self, stmt: str, number: bool):
+		errors:List[str] = []
 		for var in map(lambda v: v.strip(), stmt.split(',')):
 			value = None
-			if '=' in var:
+			if '=' in var: # quando houver atribuição na declaração
 				var, value = tuple(map(lambda val: val.strip(), var.split('=')))
-				if number and value[0] == '"':
-					return 'tipos incompativeis, valor deve ser numerico'
-				elif not number and value[0] != '"':
-					return 'tipos incompativeis, valor deve ser cadeia'
+				if number and value[0] in QUOTATIONS:
+					errors.append('{} = {} -> tipo incompatível: valor deve ser numerico'.format(var, value))
+					continue
+				elif not number and value[0] not in QUOTATIONS:
+					errors.append('{} = {} -> tipo incompatível: valor deve ser cadeia'.format(var, value))
+					continue
 				value = float(value) if number else value[1:-1]
-			if var in self.__stack:
-				return 'id já declarado'
+			if var in self.__stack[-1]:
+				errors.append('id ({}) já foi declarado anteriormente no mesmo escopo'.format(var))
+				continue
 			self.__stack[-1][var] = (value, 'numero' if number else 'cadeia')
+		if len(errors) > 0:
+			return errors
 	
+	# busca um identificador na tabela de simbolos
+	# retorna o index se encontrar ou None caso contrário
 	def __find_id(self, id: str):
-		for i in range(self.__n - 1, -1, -1):
-			if id in self.__stack[i]:
-				return i
-			
+		for i in range(1, self.__n + 1):
+			if id in self.__stack[-i]:
+				return self.__n - i
+		
+	# Trata sobre as instruções de atribuição
+	# Se tudo ocorrer bem retorna None, caso
+	# contrário, retorna uma str descrevendo o erro.
 	def __attr(self, stmt: str):
 		id, val = map(lambda v: v.strip(), stmt.split('='))
 		idx_id = self.__find_id(id)
 		if idx_id == None:
-			return '{} não encontrado'.format(id)
+			return '({}) não encontrado'.format(id)
 		symbol = self.__stack[idx_id][id]
 		if val.isalpha():
 			idx_val = self.__find_id(val)
 			if idx_val == None:
-				return '{} não encontrado'.format(val)
+				return '({}) não encontrado'.format(val)
 			val = self.__stack[idx_val][val]
 			if symbol[1] == val[1]:
 				self.__stack[idx_id][id] = val
 			else:
-				return 'tipos incompatíveis'
-		elif symbol[1] == 'cadeia' and val[0] != '"':
-			return 'tipos incompatíveis'
-		elif symbol[1] == 'numero' and val[0] == '"':
-			return 'tipos incompatíveis'
+				return '({}) e ({}) são de tipos incompatíveis'.format(id, val)
+		elif symbol[1] == 'cadeia' and val[0] not in QUOTATIONS:
+			return 'tipo incompatível: valor deve ser do tipo cadeia'
+		elif symbol[1] == 'numero' and val[0] in QUOTATIONS:
+			return 'tipo incompatível: valor deve ser numérico'
 		else:
 			self.__stack[idx_id][id] = (val, self.__stack[idx_id][id][1])
 
+	# Função geral que avalia o tipo de instrução
+	# e chama a função adequada.
+	# Responsável tbm por informar eventuais erros
+	# e quais linhas eles ocorreram
 	def read_line(self, line: str, row: int):
 		if line.startswith('BLOCO'):
 			self.__stack.append({})
@@ -59,21 +79,21 @@ class Semantic:
 				self.__stack.pop()
 				self.__n -= 1
 			elif line.startswith('NUMERO'):
-				r = self.__declare_id(line[6:].strip(), True)
-				if r:
-					print((row, r))
+				err = self.__declare_id(line[6:].strip(), True)
+				if err:
+					print(('** ERRO **', row, err))
 			elif line.startswith('CADEIA'):
-				r = self.__declare_id(line[6:].strip(), False)
-				if r:
-					print((row, r))
+				err = self.__declare_id(line[6:].strip(), False)
+				if err:
+					print(('** ERRO **', row, err))
 			elif line.startswith('PRINT'):
 				id = line[5:].strip()
 				i = self.__find_id(id)
 				if i != None:
 					print((row, self.__stack[i][id][0]))
 				else:
-					print((row, '{} não encontrado'.format(id)))
+					print((row, '** ERRO ** ({}) não encontrado'.format(id)))
 			else:
-				r = self.__attr(line)
-				if r:
-					print((row, r))
+				err = self.__attr(line)
+				if err:
+					print(('** ERRO **', row, err))
