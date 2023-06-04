@@ -17,20 +17,15 @@ class Semantic:
 	def __declare_id(self, stmt: str, number: bool):
 		errors:List[str] = []
 		for var in map(lambda v: v.strip(), stmt.split(',')):
-			value = None
-			if '=' in var: # quando houver atribuição na declaração
-				var, value = tuple(map(lambda val: val.strip(), var.split('=')))
-				if number and value[0] in QUOTATIONS:
-					errors.append('{} = {} -> tipo incompatível: valor deve ser numerico'.format(var, value))
-					continue
-				elif not number and value[0] not in QUOTATIONS:
-					errors.append('{} = {} -> tipo incompatível: valor deve ser cadeia'.format(var, value))
-					continue
-				value = float(value) if number else value[1:-1]
-			if var in self.__stack[-1]:
+			id = var.split('=')[0].strip() if '=' in var else var
+			if id in self.__stack[-1]:
 				errors.append('id ({}) já foi declarado anteriormente no mesmo escopo'.format(var))
 				continue
-			self.__stack[-1][var] = (value, 'numero' if number else 'cadeia')
+			self.__stack[-1][id] = (None, 'numero' if number else 'cadeia')
+			if '=' in var: # quando houver atribuição na declaração chama a função adequada
+				err = self.__attr(var)
+				if err:
+					errors.append(err)
 		if len(errors) > 0:
 			return errors
 	
@@ -64,6 +59,7 @@ class Semantic:
 		elif symbol[1] == 'numero' and val[0] in QUOTATIONS:
 			return 'tipo incompatível: valor deve ser numérico'
 		else:
+			val = float(val) if symbol[1] == 'numero' else val[1:-1]
 			self.__stack[idx_id][id] = (val, self.__stack[idx_id][id][1])
 
 	# Função geral que avalia o tipo de instrução
@@ -92,7 +88,7 @@ class Semantic:
 				if i != None:
 					print((row, self.__stack[i][id][0]))
 				else:
-					print((row, '** ERRO ** ({}) não encontrado'.format(id)))
+					print(('** ERRO **', row, '({}) não encontrado'.format(id)))
 			else:
 				err = self.__attr(line)
 				if err:
